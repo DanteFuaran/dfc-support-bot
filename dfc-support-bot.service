@@ -1,0 +1,15 @@
+[Unit]
+Description=dfc-support-bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/dfc-online/dfc-support-bot
+Environment=PATH=/dfc-online/dfc-support-bot/.venv/bin
+ExecStart=/dfc-online/dfc-support-bot/.venv/bin/python3 run.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
