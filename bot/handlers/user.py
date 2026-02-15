@@ -1,5 +1,5 @@
 from aiogram import Router, types
-from bot.utils.senders import forward_message
+from bot.utils.senders import forward_to_group
 from bot.utils.keyboards import get_user_keyboard
 from bot.handlers.helpers import create_user_topic, close_topic_system
 from bot.config import SUPPORT_GROUP_ID
@@ -87,8 +87,8 @@ async def user_message_handler(message: types.Message, bot, **data):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"{current_time} | INFO     | №{topic_id}: ✅ Пользователь {user_id} открыл тему.")
 
-    # Пересылка в группу
-    sent_group_msg_id = await forward_message(
+    # Пересылка в группу (forward — показывает реальный аккаунт пользователя)
+    sent_group_msg_id = await forward_to_group(
         bot,
         SUPPORT_GROUP_ID,
         message,
@@ -96,7 +96,6 @@ async def user_message_handler(message: types.Message, bot, **data):
     )
 
     if sent_group_msg_id:
-        storage.link_user_message(message.message_id, sent_group_msg_id)
         storage.update_activity(topic_id)
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"{current_time} | INFO     | №{topic_id}: 📩 {user_id} написал сообщение.")
@@ -108,47 +107,4 @@ async def user_message_handler(message: types.Message, bot, **data):
             reply_markup=get_user_keyboard(),
         )
 
-
-@router.edited_message(lambda msg: msg.chat.type == "private")
-async def user_edited_message_handler(message: types.Message, bot, **data):
-    """Обработка ОТРЕДАКТИРОВАННЫХ сообщений от пользователя."""
-    storage = data["storage"]
-    user_id = str(message.from_user.id)
-    
-    topic_id = storage.get_topic(user_id)
-    if not topic_id:
-        return
-
-    # Ищем соответствующее сообщение в группе
-    group_msg_id = storage.get_group_msg_by_user_msg(message.message_id)
-    
-    if not group_msg_id:
-        return
-
-    try:
-        # Редактируем сообщение в группе
-        if message.text:
-            await bot.edit_message_text(
-                chat_id=SUPPORT_GROUP_ID,
-                message_id=group_msg_id,
-                text=message.text
-            )
-        elif message.caption and (message.photo or message.document or message.video):
-            # Для медиа-сообщений с подписью
-            await bot.edit_message_caption(
-                chat_id=SUPPORT_GROUP_ID,
-                message_id=group_msg_id,
-                caption=message.caption
-            )
-        
-        # УБРАНО: лишнее логирование редактирования
-        
-    except Exception as e:
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        error_msg = str(e)
-        if "message can't be edited" in error_msg:
-            print(f"{current_time} | WARNING  | №{topic_id}: ⚠️ Сообщение нельзя отредактировать (возможно, прошло более 48 часов)")
-        elif "message to edit not found" in error_msg:
-            print(f"{current_time} | WARNING  | №{topic_id}: ⚠️ Сообщение для редактирования не найдено")
-        else:
             print(f"{current_time} | WARNING  | №{topic_id}: ⚠️ Не удалось отредактировать сообщение в группе: {e}")

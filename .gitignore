@@ -5,11 +5,10 @@ env/
 
 # Configuration files
 .env
-*.env
 
 # Storage files
-storage.json
-storage.json.bak
+data/storage.json
+data/storage.json.bak
 
 # Python
 __pycache__/

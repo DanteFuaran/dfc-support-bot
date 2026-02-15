@@ -1,0 +1,24 @@
+services:
+  dfc-sb:
+    image: dfc-sb:local
+    container_name: "dfc-sb"
+    hostname: dfc-sb
+    restart: unless-stopped
+
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=UTC
+
+    volumes:
+      - ./data:/opt/dfc-sb/data
+
+    networks:
+      - remnawave-network
+
+networks:
+  remnawave-network:
+    name: remnawave-network
+    driver: bridge
+    external: true
