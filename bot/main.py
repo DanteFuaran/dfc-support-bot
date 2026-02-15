@@ -54,7 +54,6 @@ async def main():
     
     # Команды для группы поддержки
     group_commands = [
-        BotCommand(command="topics", description="📋 Список активных тем"),
         BotCommand(command="close", description="🛑 Закрыть обращение"),
         BotCommand(command="keyboard", description="⌨️ Отправить меню пользователю"),
         BotCommand(command="resolve", description="✅ Отметить как решённый"),

@@ -18,23 +18,6 @@ async def cmd_start(message: types.Message):
     )
 
 
-@router.message(Command("topics"))
-async def cmd_topics(message: types.Message):
-    """Показывает список активных тем (только в группе поддержки)."""
-    if message.chat.id != SUPPORT_GROUP_ID:
-        return
-
-    if not storage.user_topics:
-        await message.reply("📭 Активных тем нет.")
-        return
-
-    lines = [f"👥 Активные темы: {len(storage.user_topics)}"]
-    for uid, tid in storage.user_topics.items():
-        lines.append(f"• Пользователь <code>{uid}</code> → тема #{tid}")
-
-    await message.reply("\n".join(lines), parse_mode="HTML")
-
-
 @router.message(Command("close"))
 async def cmd_close(message: types.Message, bot):
     """Закрывает тему по команде поддержки (используется в группе)."""

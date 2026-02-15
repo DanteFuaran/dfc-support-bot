@@ -65,7 +65,7 @@ get_local_version() {
             [ -n "$ver" ] && echo "$ver" && return
         fi
     done
-    echo "0.1.8"
+    echo "0.1.9"
 }
 
 get_remote_version() {
@@ -472,7 +472,7 @@ update_bot() {
 # ═══════════════════════════════════════════════
 show_full_menu() {
     local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.7"
+    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.9"
 
     # Создаём команду если нет
     if [ ! -f "/usr/local/bin/dfc-sb" ]; then
