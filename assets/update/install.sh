@@ -490,7 +490,7 @@ show_full_menu() {
             update_notice=" ${YELLOW}(Доступно: v$new_version)${NC}"
         fi
 
-        local menu_title="🚀 DFC SUPPORT BOT v${LOCAL_VERSION}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\nhttps://github.com/DanteFuaran${NC}"
+        local menu_title="                    🚀 DFC SUPPORT BOT v${LOCAL_VERSION}\nПроект развивается благодаря вашей поддержке\n                https://github.com/DanteFuaran${NC}"
         
         show_arrow_menu "$menu_title" \
             "🔄  Обновить$update_notice" \
