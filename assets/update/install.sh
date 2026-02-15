@@ -69,26 +69,31 @@ get_local_version() {
 # ИНТЕРАКТИВНОЕ МЕНЮ
 # ═══════════════════════════════════════════════
 show_arrow_menu() {
+    set +e
     local title="$1"
     shift
     local options=("$@")
     local num_options=${#options[@]}
     local selected=0
 
+    # Сохраняем настройки терминала
     local original_stty
     original_stty=$(stty -g 2>/dev/null)
 
+    # Скрываем курсор
     tput civis 2>/dev/null || true
+
+    # Отключаем canonical mode и echo, включаем чтение отдельных символов
     stty -icanon -echo min 1 time 0 2>/dev/null || true
 
-    # Пропускаем разделители
-    while [[ "${options[$selected]}" =~ ^[─━═[:space:]]*$ ]]; do
-        ((selected++))
-        if [ $selected -ge $num_options ]; then
-            selected=0
-            break
-        fi
-    done
+    # Функция восстановления терминала
+    _restore_term() {
+        stty "$original_stty" 2>/dev/null || stty sane 2>/dev/null || true
+        tput cnorm 2>/dev/null || true
+    }
+
+    # Обработчик ошибок для этой функции
+    trap "_restore_term" RETURN
 
     while true; do
         clear
@@ -98,8 +103,10 @@ show_arrow_menu() {
         echo
 
         for i in "${!options[@]}"; do
-            if [[ "${options[$i]}" =~ ^[─━═[:space:]]*$ ]]; then
-                echo -e "${DARKGRAY}${options[$i]}${NC}"
+            # Проверяем, является ли элемент разделителем
+            if [[ "${options[$i]}" =~ ^[─━═\s]*$ ]]; then
+                # Разделители без отступа - вровень с рамкой
+                echo -e "${options[$i]}"
             elif [ $i -eq $selected ]; then
                 echo -e "${BLUE}▶${NC} ${YELLOW}${options[$i]}${NC}"
             else
@@ -114,26 +121,37 @@ show_arrow_menu() {
         local key
         read -rsn1 key 2>/dev/null || key=""
 
+        # Проверяем escape-последовательность для стрелок
         if [[ "$key" == $'\e' ]]; then
             local seq1="" seq2=""
             read -rsn1 -t 0.1 seq1 2>/dev/null || seq1=""
             if [[ "$seq1" == '[' ]]; then
                 read -rsn1 -t 0.1 seq2 2>/dev/null || seq2=""
                 case "$seq2" in
-                    'A')
+                    'A')  # Стрелка вверх
                         ((selected--))
-                        if [ $selected -lt 0 ]; then selected=$((num_options - 1)); fi
-                        while [[ "${options[$selected]}" =~ ^[─━═[:space:]]*$ ]]; do
+                        if [ $selected -lt 0 ]; then
+                            selected=$((num_options - 1))
+                        fi
+                        # Пропускаем разделители вверх
+                        while [[ "${options[$selected]}" =~ ^[─═\s]*$ ]]; do
                             ((selected--))
-                            if [ $selected -lt 0 ]; then selected=$((num_options - 1)); fi
+                            if [ $selected -lt 0 ]; then
+                                selected=$((num_options - 1))
+                            fi
                         done
                         ;;
-                    'B')
+                    'B')  # Стрелка вниз
                         ((selected++))
-                        if [ $selected -ge $num_options ]; then selected=0; fi
-                        while [[ "${options[$selected]}" =~ ^[─━═[:space:]]*$ ]]; do
+                        if [ $selected -ge $num_options ]; then
+                            selected=0
+                        fi
+                        # Пропускаем разделители вниз
+                        while [[ "${options[$selected]}" =~ ^[─═\s]*$ ]]; do
                             ((selected++))
-                            if [ $selected -ge $num_options ]; then selected=0; fi
+                            if [ $selected -ge $num_options ]; then
+                                selected=0
+                            fi
                         done
                         ;;
                 esac
@@ -147,8 +165,8 @@ show_arrow_menu() {
             fi
 
             if [ "$key_code" -eq 10 ] || [ "$key_code" -eq 13 ]; then
-                stty "$original_stty" 2>/dev/null || true
-                tput cnorm 2>/dev/null || true
+                # Восстанавливаем состояние терминала перед выходом
+                _restore_term
                 return $selected
             fi
         fi
