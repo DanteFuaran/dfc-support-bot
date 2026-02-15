@@ -106,5 +106,3 @@ async def user_message_handler(message: types.Message, bot, **data):
             "<b>Ваше сообщение отправлено в поддержку.</b>\nПожалуйста, ожидайте ответа...",
             reply_markup=get_user_keyboard(),
         )
-
-            print(f"{current_time} | WARNING  | №{topic_id}: ⚠️ Не удалось отредактировать сообщение в группе: {e}")

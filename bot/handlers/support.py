@@ -81,4 +81,4 @@ async def handle_support_edited_message(message: types.Message, bot):
             )
     except Exception as e:
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{now} | WARNING  | №{topic_id}: ⚠️ Не удалось обновить сообщение: {e}") {e}")
+        print(f"{now} | WARNING  | №{topic_id}: ⚠️ Не удалось обновить сообщение: {e}")

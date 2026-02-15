@@ -26,4 +26,4 @@ INACTIVITY_TIMEOUT = INACTIVITY_DAYS * 24 * 60 * 60
 # Путь к данным (data/ монтируется как Docker volume)
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
 os.makedirs(DATA_DIR, exist_ok=True)
-STORAGE_FILE = os.path.join(DATA_DIR, "storage.json"))
+STORAGE_FILE = os.path.join(DATA_DIR, "storage.json")
