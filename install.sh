@@ -58,7 +58,7 @@ trap handle_interrupt INT
 get_local_version() {
     # Пытаемся прочитать из VERSION файла
     if [ -f "$PROJECT_DIR/VERSION" ]; then
-        cat "$PROJECT_DIR/VERSION" 2>/dev/null | tr -d ' \n' || echo "0.1.2"
+        cat "$PROJECT_DIR/VERSION" 2>/dev/null | tr -d ' \n' || echo "0.1.3"
         return
     fi
     
@@ -70,7 +70,7 @@ get_local_version() {
         fi
     done
     
-    echo "0.1.2"
+    echo "0.1.3"
 }
 
 # ═══════════════════════════════════════════════
@@ -427,7 +427,7 @@ update_bot() {
 # ═══════════════════════════════════════════════
 show_full_menu() {
     local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.2"
+    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.3"
 
     # Создаём команду если нет
     if [ ! -f "/usr/local/bin/dfc-sb" ]; then
@@ -623,7 +623,7 @@ delete_bot_full() {
 # ═══════════════════════════════════════════════
 show_install_menu() {
     local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.2"
+    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.3"
 
     show_arrow_menu "🚀 DFC SUPPORT BOT v${LOCAL_VERSION}" \
         "📦  Установить" \
