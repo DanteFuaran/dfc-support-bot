@@ -32,14 +32,10 @@ ___
 
 ### 📦 Установленные пакеты
 
-> python3 (версия 3.8+)
-> python3-venv  
-> python3-pip 
-> git  
-> curl и wget (для автоматической установки)
+> Docker  
+> Docker Compose
 
-<sub>⚠️ $${\color{orange}Все\ пакеты\ устанавливаются\ при\ автоматической\ установке.}$$<br></sub>
-<sub>⚠️ $${\color{orange}При\ ручной\ установке\ необходимо\ проверить\ наличие.}$$</sub>
+<sub>⚠️ $${\color{orange}Docker\ и\ Docker\ Compose\ устанавливаются\ при\ автоматической\ установке.}$$</sub>
 
 <br>
 
@@ -57,7 +53,7 @@ ___
 
 ___
 
-<h2> $${\color{blue}🚀 Скрипт\ автоматической\ установки}$$ </h2>
+<h2> $${\color{blue}🚀 Автоматическая\ установка}$$ </h2>
 
 <details>
   
@@ -71,19 +67,17 @@ bash <(curl -fsSL https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/
 ```
 
 ### 📦 Что сделает скрипт
-> Обновит систему и установит все зависимости<br>
+> Обновит систему и установит Docker и Docker Compose<br>
 > Клонирует репозиторий<br>
-> Создаст и настроит виртуальное окружение<br>
-> Установит зависимости Python<br>
-> Настроит автозапуск<br>
-> Установит панель управления<br>
-> Запустит бота
+> Настроит конфигурацию<br>
+> Соберёт Docker образ<br>
+> Запустит бота в контейнере
 
 </details>
   
 ___
 
-<h2> $${\color{blue}🧰 Альтернативная\ ручная\ установка}$$ </h2>
+<h2> $${\color{blue}🐳 Ручная\ установка\ (Docker)}$$ </h2>
 
 <details>
   
@@ -92,8 +86,7 @@ ___
 ### 🛠 Подготовка системы
 
 ```bash
-apt update && apt upgrade -y
-apt install -y python3 python3-pip python3-venv git curl wget
+apt update && apt install -y docker.io docker-compose-plugin git curl
 ```
 
 <br>
@@ -108,19 +101,9 @@ cd dfc-support-bot
 
 <br>
 
-### 🐍 Создание виртуального окружения
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --no-cache-dir -r requirements.txt
-deactivate
-```
-
-<br>
-
 ### ⚙️ Настройка конфигурации
 ```bash
-cp .env.example .env 2>/dev/null || true
+cp .env.example .env
 nano .env
 ```
 
@@ -135,34 +118,9 @@ INACTIVITY_DAYS — через сколько дней автоматическ�
 
 <br>
 
-### 🚀 Создание сервиса автозапуска
+### 🚀 Запуск бота через Docker
 ```bash
-cat > /etc/systemd/system/dfc-support-bot.service << SERVICE
-[Unit]
-Description=Telegram Support Bot
-After=network.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/dfc-online/dfc-support-bot
-Environment=PATH=/dfc-online/dfc-support-bot/.venv/bin
-ExecStart=/dfc-online/dfc-support-bot/.venv/bin/python /dfc-online/dfc-support-bot/run.py
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-SERVICE
-```
-
-<br>
-
-### ▶️ Запуск бота
-```bash
-systemctl daemon-reload
-systemctl enable dfc-support-bot.service
-systemctl start dfc-support-bot.service
+docker compose up -d
 ```
 
 <br>
