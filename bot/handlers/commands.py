@@ -127,7 +127,7 @@ async def cmd_resolve_success(message: types.Message, bot):
         )
         await bot.send_message(
             chat_id=int(user_id),
-            text="Спасибо за обратную связь! Если будут новые вопросы - просто напишите мне.",
+            text="✅ Ваш вопрос был отмечен как решённый.\nЕсли будут новые вопросы - просто напишите мне.",
         )
     except Exception as e:
         await asyncio.sleep(1)
@@ -160,7 +160,7 @@ async def cmd_resolve_unsuccess(message: types.Message, bot):
         )
         await bot.send_message(
             chat_id=int(user_id),
-            text="❌ Мне искренне жаль, что я не смог вам помочь.\nЕсли будут новые вопросы - просто напишите мне.",
+            text="❌ Ваш вопрос был отмечен как нерешённый.\nМне искренне жаль, что я не смог вам помочь.\nЕсли будут новые вопросы - просто напишите мне.",
         )
     except Exception as e:
         await asyncio.sleep(1)

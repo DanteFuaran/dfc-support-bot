@@ -73,6 +73,53 @@ get_local_version() {
     echo "0.1.3"
 }
 
+get_remote_version() {
+    # Получаем SHA последнего коммита для обхода кеша CDN
+    local latest_sha
+    latest_sha=$(curl -sL --max-time 5 "https://api.github.com/repos/DanteFuaran/dfc-support-bot/commits/$REPO_BRANCH" 2>/dev/null | grep -m 1 '"sha"' | cut -d'"' -f4)
+    
+    if [ -n "$latest_sha" ]; then
+        # Используем конкретный SHA для получения актуальной версии
+        curl -sL --max-time 5 "https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/$latest_sha/VERSION" 2>/dev/null | tr -d ' \n'
+    else
+        # Фоллбек на прямое обращение с timestamp
+        curl -sL --max-time 5 "https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/$REPO_BRANCH/VERSION?t=$(date +%s)" 2>/dev/null | tr -d ' \n'
+    fi
+}
+
+check_for_updates() {
+    local remote_version
+    remote_version=$(get_remote_version)
+    
+    if [ -z "$remote_version" ]; then
+        return 1
+    fi
+    
+    # Сравниваем установленную версию с удаленной
+    local local_version
+    local_version=$(get_local_version)
+
+    # Сравниваем версии: обновление доступно только если удалённая версия новее
+    if [ "$remote_version" != "$local_version" ]; then
+        # Проверяем что удалённая версия действительно новее
+        local IFS=.
+        local i remote_parts=($remote_version) local_parts=($local_version)
+        for ((i=0; i<${#remote_parts[@]}; i++)); do
+            local r=${remote_parts[i]:-0}
+            local l=${local_parts[i]:-0}
+            if (( r > l )); then
+                echo "$remote_version"
+                return 0
+            elif (( r < l )); then
+                return 1
+            fi
+        done
+        return 1
+    fi
+    
+    return 1
+}
+
 # ═══════════════════════════════════════════════
 # ИНТЕРАКТИВНОЕ МЕНЮ
 # ═══════════════════════════════════════════════
@@ -435,8 +482,16 @@ show_full_menu() {
     fi
 
     while true; do
+        # Проверяем наличие обновлений
+        local update_notice=""
+        if [ -f /tmp/dfc_sb_update_available ]; then
+            local new_version
+            new_version=$(cat /tmp/dfc_sb_update_available)
+            update_notice=" ${YELLOW}(Доступно обновление до v$new_version)${NC}"
+        fi
+
         show_arrow_menu "🚀 DFC SUPPORT BOT v${LOCAL_VERSION}" \
-            "🔄  Обновить" \
+            "🔄  Обновить$update_notice" \
             "ℹ️   Просмотр логов" \
             "📊  Логи в реальном времени" \
             "──────────────────────────────────────" \
@@ -641,7 +696,28 @@ show_install_menu() {
 # ═══════════════════════════════════════════════
 # ТОЧКА ВХОДА
 # ═══════════════════════════════════════════════
+
+# Проверка обновлений только если бот установлен
 if is_installed; then
+    UPDATE_CHECK_FILE="/tmp/dfc_sb_last_update_check"
+    current_time=$(date +%s)
+    last_check=0
+
+    if [ -f "$UPDATE_CHECK_FILE" ]; then
+        last_check=$(cat "$UPDATE_CHECK_FILE" 2>/dev/null || echo 0)
+    fi
+
+    # Проверяем раз в час (3600 секунд)
+    time_diff=$((current_time - last_check))
+    if [ $time_diff -gt 3600 ] || [ ! -f /tmp/dfc_sb_update_available ]; then
+        new_version=$(check_for_updates)
+        if [ $? -eq 0 ] && [ -n "$new_version" ]; then
+            echo "$new_version" > /tmp/dfc_sb_update_available
+        else
+            rm -f /tmp/dfc_sb_update_available 2>/dev/null
+        fi
+        echo "$current_time" > "$UPDATE_CHECK_FILE"
+    fi
     show_full_menu
 else
     show_install_menu
