@@ -65,7 +65,7 @@ get_local_version() {
             [ -n "$ver" ] && echo "$ver" && return
         fi
     done
-    echo "0.1.7"
+    echo "0.1.8"
 }
 
 get_remote_version() {

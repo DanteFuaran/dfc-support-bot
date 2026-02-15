@@ -49,6 +49,30 @@ async def main():
     dp = Dispatcher()
     dp["storage"] = storage
 
+    # ======== РЕГИСТРАЦИЯ КОМАНД =========
+    from aiogram.types import BotCommand, BotCommandScopeAllGroupChats, BotCommandScopeAllPrivateChats
+    
+    # Команды для группы поддержки
+    group_commands = [
+        BotCommand(command="topics", description="📋 Список активных тем"),
+        BotCommand(command="close", description="🛑 Закрыть обращение"),
+        BotCommand(command="keyboard", description="⌨️ Отправить меню пользователю"),
+        BotCommand(command="resolve", description="✅ Отметить как решённый"),
+        BotCommand(command="unresolve", description="❌ Отметить как нерешённый"),
+    ]
+    
+    # Команды для личных чатов
+    private_commands = [
+        BotCommand(command="start", description="🚀 Начать общение"),
+    ]
+    
+    try:
+        await bot.set_my_commands(group_commands, scope=BotCommandScopeAllGroupChats())
+        await bot.set_my_commands(private_commands, scope=BotCommandScopeAllPrivateChats())
+        logger.info("✅ Команды бота зарегистрированы")
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось зарегистрировать команды: {e}")
+
     # ======== ПРОВЕРКА ГРУППЫ ПОДДЕРЖКИ =========
     try:
         chat = await bot.get_chat(SUPPORT_GROUP_ID)

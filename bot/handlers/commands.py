@@ -120,6 +120,7 @@ async def cmd_resolve_success(message: types.Message, bot):
             user_id=int(user_id),
             closed_by="support",
             close_type="success",
+            send_user_notification=False,
         )
         await asyncio.sleep(1)
         await bot.send_message(
@@ -155,6 +156,7 @@ async def cmd_resolve_unsuccess(message: types.Message, bot):
             user_id=int(user_id),
             closed_by="support",
             close_type="unsuccess",
+            send_user_notification=False,
         )
         await asyncio.sleep(1)
         await bot.send_message(

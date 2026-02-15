@@ -80,10 +80,11 @@ async def create_user_topic(bot: Bot, user_id: str, user_name: str, username: st
     return topic_id
 
 
-async def close_topic_system(bot: Bot, topic_id: int, user_id: int, closed_by: str, close_type: str):
+async def close_topic_system(bot: Bot, topic_id: int, user_id: int, closed_by: str, close_type: str, send_user_notification: bool = True):
     """
     Закрывает тему в группе и уведомляет участников.
     close_type: "success" | "unsuccess" | "support"
+    send_user_notification: отправлять ли стандартное уведомление пользователю
     """
     completion_time = datetime.datetime.now()
     formatted_completion_time = completion_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -135,7 +136,7 @@ async def close_topic_system(bot: Bot, topic_id: int, user_id: int, closed_by: s
         header_text = "ВОПРОС ЗАКРЫТ ПОДДЕРЖКОЙ"
 
     # 🆕 ОТПРАВКА УВЕДОМЛЕНИЯ ПОЛЬЗОВАТЕЛЮ ПРИ ЗАКРЫТИИ ПОДДЕРЖКОЙ
-    if closed_by == "support":
+    if closed_by == "support" and send_user_notification:
         try:
             await bot.send_message(
                 chat_id=user_id,
