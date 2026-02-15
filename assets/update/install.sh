@@ -2,9 +2,8 @@
 
 # ═══════════════════════════════════════════════
 # DFC SUPPORT BOT — Установщик и панель управления
+# Версия: 0.1.7
 # ═══════════════════════════════════════════════
-
-set -e
 
 # Цвета
 RED='\033[0;31m'
@@ -33,6 +32,9 @@ for _uf in "$SCRIPT_CWD/assets/update/.update" "$PROJECT_DIR/assets/update/.upda
     fi
 done
 
+# Источник файлов (при установке — tmp-папка)
+SOURCE_DIR=""
+
 # ═══════════════════════════════════════════════
 # ВОССТАНОВЛЕНИЕ ТЕРМИНАЛА
 # ═══════════════════════════════════════════════
@@ -56,52 +58,39 @@ trap handle_interrupt INT
 # ВЕРСИЯ
 # ═══════════════════════════════════════════════
 get_local_version() {
-    # Пытаемся прочитать из VERSION файла
-    if [ -f "$PROJECT_DIR/VERSION" ]; then
-        cat "$PROJECT_DIR/VERSION" 2>/dev/null | tr -d ' \n' || echo "0.1.3"
-        return
-    fi
-    
-    # Fallback: читаем из assets/update/.update
     for _uf in "$PROJECT_DIR/assets/update/.update" "$SCRIPT_CWD/assets/update/.update"; do
         if [ -f "$_uf" ]; then
-            grep '^version:' "$_uf" 2>/dev/null | cut -d: -f2 | tr -d ' \n' || echo ""
-            return
+            local ver
+            ver=$(grep '^version:' "$_uf" 2>/dev/null | cut -d: -f2 | tr -d ' \n')
+            [ -n "$ver" ] && echo "$ver" && return
         fi
     done
-    
-    echo "0.1.3"
+    echo "0.1.7"
 }
 
 get_remote_version() {
-    # Получаем SHA последнего коммита для обхода кеша CDN
     local latest_sha
     latest_sha=$(curl -sL --max-time 5 "https://api.github.com/repos/DanteFuaran/dfc-support-bot/commits/$REPO_BRANCH" 2>/dev/null | grep -m 1 '"sha"' | cut -d'"' -f4)
-    
+
     if [ -n "$latest_sha" ]; then
-        # Используем конкретный SHA для получения актуальной версии
-        curl -sL --max-time 5 "https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/$latest_sha/VERSION" 2>/dev/null | tr -d ' \n'
+        curl -sL --max-time 5 "https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/$latest_sha/assets/update/.update" 2>/dev/null | grep '^version:' | cut -d: -f2 | tr -d ' \n'
     else
-        # Фоллбек на прямое обращение с timestamp
-        curl -sL --max-time 5 "https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/$REPO_BRANCH/VERSION?t=$(date +%s)" 2>/dev/null | tr -d ' \n'
+        curl -sL --max-time 5 "https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/$REPO_BRANCH/assets/update/.update?t=$(date +%s)" 2>/dev/null | grep '^version:' | cut -d: -f2 | tr -d ' \n'
     fi
 }
 
 check_for_updates() {
     local remote_version
     remote_version=$(get_remote_version)
-    
+
     if [ -z "$remote_version" ]; then
         return 1
     fi
-    
-    # Сравниваем установленную версию с удаленной
+
     local local_version
     local_version=$(get_local_version)
 
-    # Сравниваем версии: обновление доступно только если удалённая версия новее
     if [ "$remote_version" != "$local_version" ]; then
-        # Проверяем что удалённая версия действительно новее
         local IFS=.
         local i remote_parts=($remote_version) local_parts=($local_version)
         for ((i=0; i<${#remote_parts[@]}; i++)); do
@@ -116,7 +105,7 @@ check_for_updates() {
         done
         return 1
     fi
-    
+
     return 1
 }
 
@@ -131,23 +120,17 @@ show_arrow_menu() {
     local num_options=${#options[@]}
     local selected=0
 
-    # Сохраняем настройки терминала
     local original_stty
     original_stty=$(stty -g 2>/dev/null)
 
-    # Скрываем курсор
     tput civis 2>/dev/null || true
-
-    # Отключаем canonical mode и echo, включаем чтение отдельных символов
     stty -icanon -echo min 1 time 0 2>/dev/null || true
 
-    # Функция восстановления терминала
     _restore_term() {
         stty "$original_stty" 2>/dev/null || stty sane 2>/dev/null || true
         tput cnorm 2>/dev/null || true
     }
 
-    # Обработчик ошибок для этой функции
     trap "_restore_term" RETURN
 
     while true; do
@@ -158,9 +141,7 @@ show_arrow_menu() {
         echo
 
         for i in "${!options[@]}"; do
-            # Проверяем, является ли элемент разделителем
-            if [[ "${options[$i]}" =~ ^[─━═\s]*$ ]]; then
-                # Разделители без отступа - вровень с рамкой
+            if [[ "${options[$i]}" =~ ^[─━═[:space:]]*$ ]]; then
                 echo -e "${options[$i]}"
             elif [ $i -eq $selected ]; then
                 echo -e "${BLUE}▶${NC} ${YELLOW}${options[$i]}${NC}"
@@ -176,37 +157,26 @@ show_arrow_menu() {
         local key
         read -rsn1 key 2>/dev/null || key=""
 
-        # Проверяем escape-последовательность для стрелок
         if [[ "$key" == $'\e' ]]; then
             local seq1="" seq2=""
             read -rsn1 -t 0.1 seq1 2>/dev/null || seq1=""
             if [[ "$seq1" == '[' ]]; then
                 read -rsn1 -t 0.1 seq2 2>/dev/null || seq2=""
                 case "$seq2" in
-                    'A')  # Стрелка вверх
+                    'A')
                         ((selected--))
-                        if [ $selected -lt 0 ]; then
-                            selected=$((num_options - 1))
-                        fi
-                        # Пропускаем разделители вверх
-                        while [[ "${options[$selected]}" =~ ^[─═\s]*$ ]]; do
+                        if [ $selected -lt 0 ]; then selected=$((num_options - 1)); fi
+                        while [[ "${options[$selected]}" =~ ^[─═[:space:]]*$ ]]; do
                             ((selected--))
-                            if [ $selected -lt 0 ]; then
-                                selected=$((num_options - 1))
-                            fi
+                            if [ $selected -lt 0 ]; then selected=$((num_options - 1)); fi
                         done
                         ;;
-                    'B')  # Стрелка вниз
+                    'B')
                         ((selected++))
-                        if [ $selected -ge $num_options ]; then
-                            selected=0
-                        fi
-                        # Пропускаем разделители вниз
-                        while [[ "${options[$selected]}" =~ ^[─═\s]*$ ]]; do
+                        if [ $selected -ge $num_options ]; then selected=0; fi
+                        while [[ "${options[$selected]}" =~ ^[─═[:space:]]*$ ]]; do
                             ((selected++))
-                            if [ $selected -ge $num_options ]; then
-                                selected=0
-                            fi
+                            if [ $selected -ge $num_options ]; then selected=0; fi
                         done
                         ;;
                 esac
@@ -220,7 +190,6 @@ show_arrow_menu() {
             fi
 
             if [ "$key_code" -eq 10 ] || [ "$key_code" -eq 13 ]; then
-                # Восстанавливаем состояние терминала перед выходом
                 _restore_term
                 return $selected
             fi
@@ -307,13 +276,17 @@ install_bot() {
     # Создание сети
     docker network create remnawave-network 2>/dev/null || true
 
-    # Клонирование репозитория
+    # Проверяем существует ли уже
     if [ -d "$PROJECT_DIR" ]; then
         echo -e "${YELLOW}⚠️  Папка $PROJECT_DIR уже существует.${NC}"
         echo -ne "${RED}Перезаписать? (y/N): ${NC}"
         read confirm
         case "$confirm" in
             [yY][eE][sS]|[yY])
+                cd /opt 2>/dev/null || true
+                cd "$PROJECT_DIR" 2>/dev/null && docker compose down >/dev/null 2>&1 || true
+                cd /opt
+                docker rmi "$IMAGE_NAME" -f >/dev/null 2>&1 || true
                 rm -rf "$PROJECT_DIR"
                 ;;
             *)
@@ -323,11 +296,14 @@ install_bot() {
         esac
     fi
 
-    mkdir -p "$PROJECT_DIR"
-    git clone -b "$REPO_BRANCH" --depth 1 "$REPO_URL" "$PROJECT_DIR" >/dev/null 2>&1 &
-    show_spinner "Клонирование репозитория"
-
-    cd "$PROJECT_DIR"
+    # Клонируем во временную папку если SOURCE_DIR ещё не задан
+    if [ -z "$SOURCE_DIR" ] || [ ! -d "$SOURCE_DIR/bot" ]; then
+        SOURCE_DIR=$(mktemp -d)
+        git clone -b "$REPO_BRANCH" --depth 1 "$REPO_URL" "$SOURCE_DIR" >/dev/null 2>&1 &
+        show_spinner "Клонирование репозитория"
+    else
+        echo -e "${GREEN}✅${NC} Используем загруженный репозиторий"
+    fi
 
     # Настройка .env
     echo
@@ -340,30 +316,40 @@ install_bot() {
     reading "Дни до автозакрытия тикетов [5]:" INACTIVITY_DAYS
     INACTIVITY_DAYS=${INACTIVITY_DAYS:-5}
 
-    cat > .env << EOF
+    # Создаём продакшн папку с минимальной структурой
+    mkdir -p "$PROJECT_DIR"/{data,logs,assets/update}
+
+    # Копируем только нужные файлы
+    cp -f "$SOURCE_DIR/docker-compose.yml" "$PROJECT_DIR/docker-compose.yml"
+    cp -rf "$SOURCE_DIR/assets/"* "$PROJECT_DIR/assets/" 2>/dev/null || true
+    cp -f "$SOURCE_DIR/install.sh" "$PROJECT_DIR/assets/update/install.sh"
+    chmod +x "$PROJECT_DIR/assets/update/install.sh"
+
+    # Генерируем .env
+    cat > "$PROJECT_DIR/.env" << EOF
 BOT_TOKEN=$BOT_TOKEN
 SUPPORT_GROUP_ID=$SUPPORT_GROUP_ID
 INACTIVITY_DAYS=$INACTIVITY_DAYS
 EOF
     echo -e "\n${GREEN}✅${NC} Конфигурация сохранена"
 
-    # Создание директории данных
-    mkdir -p data
-
-    # Сборка Docker образа
+    # Сборка Docker образа из tmp
     echo
+    cd "$SOURCE_DIR"
     docker build -t "$IMAGE_NAME" . >/dev/null 2>&1 &
     show_spinner "Сборка Docker образа"
 
     # Запуск
+    cd "$PROJECT_DIR"
     docker compose up -d >/dev/null 2>&1 &
     show_spinner "Запуск контейнера"
 
     sleep 2
 
-    # Очистка git
-    rm -rf "$PROJECT_DIR/.git"
-    rm -f "$PROJECT_DIR/.gitignore" "$PROJECT_DIR/README.md" "$PROJECT_DIR/license"
+    # Очистка tmp
+    if [ -n "$SOURCE_DIR" ] && [[ "$SOURCE_DIR" == /tmp/* ]]; then
+        rm -rf "$SOURCE_DIR"
+    fi
 
     # Создание глобальной команды
     create_cli_command
@@ -393,7 +379,8 @@ create_cli_command() {
 if [ -f "/opt/dfc-support-bot/assets/update/install.sh" ]; then
     exec /opt/dfc-support-bot/assets/update/install.sh
 else
-    exec /opt/dfc-support-bot/install.sh
+    echo "❌ DFC Support Bot не установлен."
+    exit 1
 fi
 CLIPATH
     chmod +x /usr/local/bin/dfc-sb
@@ -409,7 +396,7 @@ update_bot() {
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo
 
-    cd "$PROJECT_DIR"
+    local old_version=$(get_local_version)
 
     # Клонируем во временную папку
     local TEMP_DIR
@@ -418,49 +405,60 @@ update_bot() {
     git clone -b "$REPO_BRANCH" --depth 1 "$REPO_URL" "$TEMP_DIR" >/dev/null 2>&1 &
     show_spinner "Загрузка обновлений"
 
-    # Сохраняем .env и data
-    cp -f .env "$TEMP_DIR/.env" 2>/dev/null || true
-    cp -rf data "$TEMP_DIR/data" 2>/dev/null || true
+    # Показываем версии
+    local new_version=""
+    if [ -f "$TEMP_DIR/assets/update/.update" ]; then
+        new_version=$(grep '^version:' "$TEMP_DIR/assets/update/.update" | cut -d: -f2 | tr -d ' \n')
+    fi
 
-    # Останавливаем и удаляем старый контейнер
+    echo -e "${WHITE}Установленная версия:${NC} v$old_version"
+    if [ -n "$new_version" ]; then
+        echo -e "${WHITE}Доступная версия:${NC}     v$new_version"
+    fi
+    echo
+
+    if [ "$old_version" = "$new_version" ]; then
+        echo -e "${GREEN}✅ У вас уже установлена последняя версия${NC}"
+        echo
+        read -p "Нажмите Enter для возврата..."
+        rm -rf "$TEMP_DIR"
+        return
+    fi
+
+    # Останавливаем контейнер
+    cd "$PROJECT_DIR"
     docker compose down >/dev/null 2>&1 || true
     docker rmi "$IMAGE_NAME" -f >/dev/null 2>&1 || true
 
-    # Перемещаем файлы
-    local old_dir="${PROJECT_DIR}.old"
-    rm -rf "$old_dir"
-    mv "$PROJECT_DIR" "$old_dir"
-    mv "$TEMP_DIR" "$PROJECT_DIR"
-
-    cd "$PROJECT_DIR"
-
-    # Сборка и запуск
+    # Сборка нового образа из tmp
+    cd "$TEMP_DIR"
     docker build -t "$IMAGE_NAME" . >/dev/null 2>&1 &
     show_spinner "Сборка нового образа"
 
+    # Обновляем файлы в продакшн (только docker-compose, assets, install.sh)
+    cp -f "$TEMP_DIR/docker-compose.yml" "$PROJECT_DIR/docker-compose.yml"
+    cp -rf "$TEMP_DIR/assets/"* "$PROJECT_DIR/assets/" 2>/dev/null || true
+    cp -f "$TEMP_DIR/install.sh" "$PROJECT_DIR/assets/update/install.sh"
+    chmod +x "$PROJECT_DIR/assets/update/install.sh"
+
+    # Запуск
+    cd "$PROJECT_DIR"
     docker compose up -d >/dev/null 2>&1 &
     show_spinner "Запуск обновлённого бота"
-
-    # Очистка
-    rm -rf "$old_dir"
-    rm -rf "$PROJECT_DIR/.git"
-    rm -f "$PROJECT_DIR/.gitignore" "$PROJECT_DIR/README.md" "$PROJECT_DIR/license"
 
     # Обновляем CLI
     create_cli_command
 
-    # Обновляем install.sh в assets/update
-    if [ -f "$PROJECT_DIR/install.sh" ] && [ -d "$PROJECT_DIR/assets/update" ]; then
-        cp -f "$PROJECT_DIR/install.sh" "$PROJECT_DIR/assets/update/install.sh"
-        chmod +x "$PROJECT_DIR/assets/update/install.sh"
-    fi
+    # Очистка
+    rm -rf "$TEMP_DIR"
+    rm -f /tmp/dfc_sb_update_available /tmp/dfc_sb_last_update_check 2>/dev/null
 
     sleep 2
 
     echo
     if is_running; then
-        local new_version=$(get_local_version)
-        echo -e "${GREEN}✅ Обновление до v${new_version} завершено!${NC}"
+        local final_version=$(get_local_version)
+        echo -e "${GREEN}✅ Обновление до v${final_version} завершено!${NC}"
     else
         echo -e "${RED}❌ Бот не запустился после обновления${NC}"
         echo -e "${YELLOW}Проверьте логи: docker logs $CONTAINER_NAME${NC}"
@@ -474,7 +472,7 @@ update_bot() {
 # ═══════════════════════════════════════════════
 show_full_menu() {
     local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.3"
+    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.7"
 
     # Создаём команду если нет
     if [ ! -f "/usr/local/bin/dfc-sb" ]; then
@@ -482,12 +480,14 @@ show_full_menu() {
     fi
 
     while true; do
+        LOCAL_VERSION=$(get_local_version)
+
         # Проверяем наличие обновлений
         local update_notice=""
         if [ -f /tmp/dfc_sb_update_available ]; then
             local new_version
             new_version=$(cat /tmp/dfc_sb_update_available)
-            update_notice=" ${YELLOW}(Доступно обновление до v$new_version)${NC}"
+            update_notice=" ${YELLOW}(Доступно: v$new_version)${NC}"
         fi
 
         show_arrow_menu "🚀 DFC SUPPORT BOT v${LOCAL_VERSION}" \
@@ -553,20 +553,24 @@ show_full_menu() {
                 echo -e "${YELLOW}Все файлы будут удалены и установлены заново.${NC}"
                 echo -e "${YELLOW}Данные (data/) будут сохранены.${NC}"
                 if confirm_action; then
-                    # Сохраняем данные
-                    local temp_data=$(mktemp -d)
-                    cp -rf "$PROJECT_DIR/data" "$temp_data/" 2>/dev/null || true
+                    # Сохраняем данные и .env
+                    local temp_backup=$(mktemp -d)
+                    cp -rf "$PROJECT_DIR/data" "$temp_backup/" 2>/dev/null || true
+                    cp -f "$PROJECT_DIR/.env" "$temp_backup/.env" 2>/dev/null || true
 
                     delete_bot_silent
                     install_bot
 
                     # Восстанавливаем данные
-                    if [ -d "$temp_data/data" ]; then
-                        cp -rf "$temp_data/data/"* "$PROJECT_DIR/data/" 2>/dev/null || true
-                        rm -rf "$temp_data"
-                        cd "$PROJECT_DIR"
-                        docker compose restart >/dev/null 2>&1
+                    if [ -d "$temp_backup/data" ]; then
+                        cp -rf "$temp_backup/data/"* "$PROJECT_DIR/data/" 2>/dev/null || true
                     fi
+                    if [ -f "$temp_backup/.env" ]; then
+                        cp -f "$temp_backup/.env" "$PROJECT_DIR/.env"
+                    fi
+                    rm -rf "$temp_backup"
+                    cd "$PROJECT_DIR"
+                    docker compose restart >/dev/null 2>&1
                 fi
                 ;;
             10) # Удалить
@@ -669,6 +673,7 @@ delete_bot_full() {
     docker rmi "$IMAGE_NAME" -f >/dev/null 2>&1 || true
     rm -rf "$PROJECT_DIR"
     rm -f /usr/local/bin/dfc-sb
+    rm -f /tmp/dfc_sb_update_available /tmp/dfc_sb_last_update_check 2>/dev/null
     echo -e "${GREEN}✅ Бот полностью удалён${NC}"
     echo
 }
@@ -678,7 +683,7 @@ delete_bot_full() {
 # ═══════════════════════════════════════════════
 show_install_menu() {
     local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.3"
+    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.7"
 
     show_arrow_menu "🚀 DFC SUPPORT BOT v${LOCAL_VERSION}" \
         "📦  Установить" \
@@ -697,6 +702,11 @@ show_install_menu() {
 # ТОЧКА ВХОДА
 # ═══════════════════════════════════════════════
 
+# Обработка аргумента --install (вызов из install-wrapper.sh)
+if [ "$1" = "--install" ] && [ -n "$2" ]; then
+    SOURCE_DIR="$2"
+fi
+
 # Проверка обновлений только если бот установлен
 if is_installed; then
     UPDATE_CHECK_FILE="/tmp/dfc_sb_last_update_check"
@@ -707,7 +717,6 @@ if is_installed; then
         last_check=$(cat "$UPDATE_CHECK_FILE" 2>/dev/null || echo 0)
     fi
 
-    # Проверяем раз в час (3600 секунд)
     time_diff=$((current_time - last_check))
     if [ $time_diff -gt 3600 ] || [ ! -f /tmp/dfc_sb_update_available ]; then
         new_version=$(check_for_updates)
