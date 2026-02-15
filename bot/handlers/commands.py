@@ -70,8 +70,8 @@ async def cmd_close(message: types.Message, bot):
         await message.reply(f"⚠️ Не удалось закрыть тему: {e}")
 
 
-@router.message(Command("end"))
-async def cmd_end(message: types.Message, bot):
+@router.message(Command("keyboard"))
+async def cmd_keyboard(message: types.Message, bot):
     """Отправляет пользователю инлайн-клавиатуру для опроса о решении вопроса."""
     if message.chat.id != SUPPORT_GROUP_ID or not message.message_thread_id:
         return
@@ -101,9 +101,11 @@ async def cmd_end(message: types.Message, bot):
         await message.reply(f"⚠️ Не удалось отправить опрос пользователю: {e}")
 
 
-@router.message(lambda msg: msg.text == "/+" and msg.chat.id == SUPPORT_GROUP_ID and msg.message_thread_id)
+@router.message(Command("resolve"))
 async def cmd_resolve_success(message: types.Message, bot):
     """Админ-команда для быстрого закрытия с результатом 'Вопрос решён'."""
+    if message.chat.id != SUPPORT_GROUP_ID or not message.message_thread_id:
+        return
     topic_id = message.message_thread_id
     user_id = storage.find_user_by_topic(topic_id)
 
@@ -134,9 +136,11 @@ async def cmd_resolve_success(message: types.Message, bot):
         await message.reply(f"⚠️ Не удалось закрыть тему: {e}")
 
 
-@router.message(lambda msg: msg.text == "/-" and msg.chat.id == SUPPORT_GROUP_ID and msg.message_thread_id)
+@router.message(Command("unresolve"))
 async def cmd_resolve_unsuccess(message: types.Message, bot):
     """Админ-команда для быстрого закрытия с результатом 'Вопрос не решён'."""
+    if message.chat.id != SUPPORT_GROUP_ID or not message.message_thread_id:
+        return
     topic_id = message.message_thread_id
     user_id = storage.find_user_by_topic(topic_id)
 

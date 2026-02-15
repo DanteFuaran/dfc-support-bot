@@ -13,6 +13,7 @@ services:
 
     volumes:
       - ./data:/opt/dfc-sb/data
+      - ./logs:/opt/dfc-sb/logs
 
     networks:
       - remnawave-network
