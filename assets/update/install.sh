@@ -56,12 +56,20 @@ trap handle_interrupt INT
 # ВЕРСИЯ
 # ═══════════════════════════════════════════════
 get_local_version() {
+    # Пытаемся прочитать из VERSION файла
+    if [ -f "$PROJECT_DIR/VERSION" ]; then
+        cat "$PROJECT_DIR/VERSION" 2>/dev/null | tr -d ' \n' || echo "0.1.0"
+        return
+    fi
+    
+    # Fallback: читаем из assets/update/.update
     for _uf in "$PROJECT_DIR/assets/update/.update" "$SCRIPT_CWD/assets/update/.update"; do
         if [ -f "$_uf" ]; then
             grep '^version:' "$_uf" 2>/dev/null | cut -d: -f2 | tr -d ' \n' || echo ""
             return
         fi
     done
+    
     echo "0.1.0"
 }
 
@@ -226,51 +234,6 @@ is_running() {
 }
 
 # ═══════════════════════════════════════════════
-# ПРОВЕРКА ЛИЦЕНЗИИ
-# ═══════════════════════════════════════════════
-KEYS_URL="${GITHUB_RAW_URL}/${REPO_BRANCH}/license"
-
-validate_license_key() {
-    local input_key="$1"
-    local key_hash
-    key_hash=$(echo -n "$input_key" | sha256sum | awk '{print $1}')
-    if curl -fsSL "$KEYS_URL" 2>/dev/null | grep -q "^$key_hash$"; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-check_license() {
-    echo
-    echo -e "${YELLOW}Для продолжения установки введите лицензионный ключ${NC}"
-    echo -e "${DARKGRAY}Если хотите прервать установку — нажмите Ctrl + C${NC}"
-    echo
-
-    local MAX_ATTEMPTS=5
-    local attempts_left=$MAX_ATTEMPTS
-
-    while [ $attempts_left -gt 0 ]; do
-        echo -ne "${YELLOW}Введите ключ (осталось попыток: $attempts_left):${NC} "
-        read LICENSE_KEY
-
-        if validate_license_key "$LICENSE_KEY"; then
-            echo -e "${GREEN}✅ Лицензионный ключ подтверждён${NC}"
-            return 0
-        else
-            attempts_left=$((attempts_left - 1))
-            if [ $attempts_left -gt 0 ]; then
-                echo -e "${RED}❌ Неверный ключ. Попробуйте еще раз.${NC}"
-                echo
-            fi
-        fi
-    done
-
-    echo -e "${RED}❌ Лимит попыток исчерпан. Установка отменена.${NC}"
-    exit 1
-}
-
-# ═══════════════════════════════════════════════
 # УСТАНОВКА
 # ═══════════════════════════════════════════════
 install_bot() {
@@ -278,9 +241,6 @@ install_bot() {
     echo -e "${BLUE}══════════════════════════════════════${NC}"
     echo -e "${GREEN}   🚀 УСТАНОВКА DFC SUPPORT BOT${NC}"
     echo -e "${BLUE}══════════════════════════════════════${NC}"
-
-    # Проверка лицензии
-    check_license
     echo
 
     # Проверка root
@@ -467,7 +427,7 @@ update_bot() {
 # ═══════════════════════════════════════════════
 show_full_menu() {
     local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.0"
+    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.1"
 
     # Создаём команду если нет
     if [ ! -f "/usr/local/bin/dfc-sb" ]; then
@@ -663,7 +623,7 @@ delete_bot_full() {
 # ═══════════════════════════════════════════════
 show_install_menu() {
     local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.0"
+    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.1"
 
     show_arrow_menu "🚀 DFC SUPPORT BOT v${LOCAL_VERSION}" \
         "📦  Установить" \
