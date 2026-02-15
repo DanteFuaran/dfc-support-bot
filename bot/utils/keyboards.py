@@ -1,23 +1,24 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 
 
-def get_user_keyboard() -> ReplyKeyboardMarkup:
+def get_user_keyboard() -> ReplyKeyboardRemove:
     """
-    Основная клавиатура пользователя.
-    Всегда отображается, не скрывается после нажатия.
+    Убираем постоянную клавиатуру у пользователя.
+    Теперь опрос происходит через инлайн-кнопки после команды /end.
+    """
+    return ReplyKeyboardRemove()
+
+
+def get_resolution_inline_keyboard() -> InlineKeyboardMarkup:
+    """
+    Инлайн-клавиатура для опроса пользователя о результате решения вопроса.
+    Появляется после команды администратора /end.
     """
     buttons = [
         [
-            KeyboardButton(text="✅ Вопрос успешно решён"),
-            KeyboardButton(text="❌ Вопрос не был решён"),
-            KeyboardButton(text="🧹 Очистить чат"),
+            InlineKeyboardButton(text="✅ Вопрос решён", callback_data="resolve_success"),
+            InlineKeyboardButton(text="❌ Вопрос не решён", callback_data="resolve_unsuccess"),
         ]
     ]
-
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=buttons,
-        resize_keyboard=True,         # адаптируется под экран
-        one_time_keyboard=False,      # клавиатура остаётся на месте
-    )
-
-    return keyboard
+    
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
