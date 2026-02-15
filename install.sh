@@ -472,7 +472,7 @@ update_bot() {
 # ═══════════════════════════════════════════════
 show_full_menu() {
     local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.2.0"
+    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.2.1"
 
     # Создаём команду если нет
     if [ ! -f "/usr/local/bin/dfc-sb" ]; then
@@ -490,15 +490,9 @@ show_full_menu() {
             update_notice=" ${YELLOW}(Доступно: v$new_version)${NC}"
         fi
 
-        clear
-        echo -e "${BLUE}══════════════════════════════════════${NC}"
-        echo -e "${WHITE}            🚀 DFC SUPPORT BOT v${LOCAL_VERSION}${NC}"
-        echo -e "${DARKGRAY}  Проект развивается благодаря вашей поддержке${NC}"
-        echo -e "${DARKGRAY}           https://github.com/DanteFuaran${NC}"
-        echo -e "${BLUE}══════════════════════════════════════${NC}"
-        echo
+        local menu_title="🚀 DFC SUPPORT BOT v${LOCAL_VERSION}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\nhttps://github.com/DanteFuaran${NC}"
         
-        show_arrow_menu "" \
+        show_arrow_menu "$menu_title" \
             "🔄  Обновить$update_notice" \
             "ℹ️   Просмотр логов" \
             "📊  Логи в реальном времени" \
