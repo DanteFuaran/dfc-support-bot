@@ -16,8 +16,8 @@ def get_resolution_inline_keyboard() -> InlineKeyboardMarkup:
     """
     buttons = [
         [
-            InlineKeyboardButton(text="✅ Вопрос решён", callback_data="resolve_success"),
-            InlineKeyboardButton(text="❌ Вопрос не решён", callback_data="resolve_unsuccess"),
+            InlineKeyboardButton(text="✅ Вопрос решён", callback_data="resolve_success", style="success"),
+            InlineKeyboardButton(text="❌ Вопрос не решён", callback_data="resolve_unsuccess", style="danger"),
         ]
     ]
     
