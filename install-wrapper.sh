@@ -5,7 +5,7 @@
 # ═══════════════════════════════════════════════
 
 REPO_URL="https://github.com/DanteFuaran/dfc-support-bot.git"
-REPO_BRANCH="main"
+REPO_BRANCH="dev"
 TMP_DIR=$(mktemp -d)
 
 echo -e "📦 Загрузка установщика..."
