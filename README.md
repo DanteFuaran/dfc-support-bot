@@ -63,7 +63,7 @@ ___
 
 ### ▶️ Полная установка одной командой
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/dev/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/main/install.sh)
 ```
 
 ### 📦 Что сделает скрипт

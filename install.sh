@@ -17,7 +17,7 @@ NC='\033[0m'
 # Пути
 PROJECT_DIR="/opt/dfc-support-bot"
 REPO_URL="https://github.com/DanteFuaran/dfc-support-bot.git"
-REPO_BRANCH="dev"
+REPO_BRANCH="main"
 GITHUB_RAW_URL="https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot"
 CONTAINER_NAME="dfc-sb"
 IMAGE_NAME="dfc-sb:local"
