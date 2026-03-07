@@ -21,6 +21,7 @@ REPO_BRANCH="main"
 GITHUB_RAW_URL="https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot"
 CONTAINER_NAME="dfc-sb"
 IMAGE_NAME="dfc-sb:local"
+SCRIPT_VERSION="0.2.8"  # версия этого скрипта (хардкод — надёжен при bash <(curl ...))
 
 # Единый источник версии и ветки: $PROJECT_DIR/version или $SCRIPT_CWD/version
 # Формат файла: version: x.x.x / branch: main
@@ -90,25 +91,20 @@ check_updates_available() {
     echo "0|" > "$UPDATE_STATUS_FILE"
 
     {
-        local LOCAL_VERSION
-        LOCAL_VERSION=$(grep '^version:' "$PROJECT_DIR/version" 2>/dev/null | cut -d: -f2 | tr -d ' \n')
+        _cu_lv=$(grep '^version:' "$PROJECT_DIR/version" 2>/dev/null | cut -d: -f2 | tr -d ' \n')
+        _cu_rc=$(curl -sL --max-time 10 "${GITHUB_RAW_URL}/main/version" 2>/dev/null)
+        _cu_rv=$(parse_version_from_content "$_cu_rc")
 
-        local REMOTE_VERSION=""
-        local REMOTE_CONTENT
-        REMOTE_CONTENT=$(curl -sL --max-time 10 "${GITHUB_RAW_URL}/main/version" 2>/dev/null)
-        REMOTE_VERSION=$(parse_version_from_content "$REMOTE_CONTENT")
-
-        if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ]; then
-            local local_num remote_num
-            local_num=$(echo "$LOCAL_VERSION" | awk -F. '{printf "%03d%03d%03d", $1, $2, $3}')
-            remote_num=$(echo "$REMOTE_VERSION" | awk -F. '{printf "%03d%03d%03d", $1, $2, $3}')
-            if [ "$local_num" -lt "$remote_num" ] 2>/dev/null; then
-                echo "1|$REMOTE_VERSION" > "$UPDATE_STATUS_FILE"
+        if [ -n "$_cu_rv" ] && [ -n "$_cu_lv" ]; then
+            _cu_ln=$(echo "$_cu_lv" | awk -F. '{printf "%03d%03d%03d", $1, $2, $3}')
+            _cu_rn=$(echo "$_cu_rv" | awk -F. '{printf "%03d%03d%03d", $1, $2, $3}')
+            if [ "$_cu_ln" -lt "$_cu_rn" ] 2>/dev/null; then
+                echo "1|$_cu_rv" > "$UPDATE_STATUS_FILE"
             else
-                echo "0|$REMOTE_VERSION" > "$UPDATE_STATUS_FILE"
+                echo "0|$_cu_rv" > "$UPDATE_STATUS_FILE"
             fi
-        elif [ -n "$REMOTE_VERSION" ]; then
-            echo "0|$REMOTE_VERSION" > "$UPDATE_STATUS_FILE"
+        elif [ -n "$_cu_rv" ]; then
+            echo "0|$_cu_rv" > "$UPDATE_STATUS_FILE"
         fi
     } &
     CHECK_UPDATE_PID=$!
@@ -712,17 +708,16 @@ delete_bot_full() {
 # МЕНЮ УСТАНОВКИ (для нового пользователя)
 # ═══════════════════════════════════════════════
 show_install_menu() {
-    # Ждём результата фоновой проверки обновлений (узнаём актуальную версию из репо)
-    wait_for_update_check
+    # Версия этого скрипта — всегда известна, надёжно работает даже при bash <(curl ...)
+    local DISPLAY_VERSION="$SCRIPT_VERSION"
 
-    # Версия для отображения: SCRIPT_CWD/version (если запущено из клона),
-    # иначе AVAILABLE_VERSION из удалённого репо
-    local DISPLAY_VERSION
-    DISPLAY_VERSION=$(get_local_version)
-    if [ -z "$DISPLAY_VERSION" ] && [ -n "$AVAILABLE_VERSION" ]; then
-        DISPLAY_VERSION="$AVAILABLE_VERSION"
+    # Ждём фоновую проверку — если в репо есть более новая версия, покажем её
+    wait_for_update_check
+    if [ -n "$AVAILABLE_VERSION" ]; then
+        _im_sn=$(echo "$SCRIPT_VERSION" | awk -F. '{printf "%03d%03d%03d", $1, $2, $3}')
+        _im_an=$(echo "$AVAILABLE_VERSION" | awk -F. '{printf "%03d%03d%03d", $1, $2, $3}')
+        [ "$_im_an" -gt "$_im_sn" ] 2>/dev/null && DISPLAY_VERSION="$AVAILABLE_VERSION"
     fi
-    [ -z "$DISPLAY_VERSION" ] && DISPLAY_VERSION="0.2.8"
 
     local menu_title="     🚀 DFC SUPPORT BOT v${DISPLAY_VERSION}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
 
