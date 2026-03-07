@@ -5,9 +5,10 @@ from bot.utils.keyboards import get_user_keyboard
 from bot.handlers.helpers import create_user_topic, close_topic_system
 from bot.config import SUPPORT_GROUP_ID
 import asyncio
-import datetime
+import logging
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 
 @router.message(lambda msg: msg.chat.type == "private")
@@ -26,8 +27,7 @@ async def user_message_handler(message: types.Message, bot, **data):
         topic_id = await create_user_topic(bot, user_id, user_name, username)
         storage.set_topic(user_id, topic_id)
         is_new_topic = True
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{current_time} | INFO     | №{topic_id}: ✅ Пользователь {user_id} открыл тему.")
+        logger.info(f"№{topic_id}: ✅ Пользователь {user_id} открыл тему.")
 
     # Пересылка в группу (forward — показывает реальный аккаунт пользователя)
     try:
@@ -39,15 +39,14 @@ async def user_message_handler(message: types.Message, bot, **data):
         )
     except ThreadNotFoundError:
         # Тема удалена в Telegram — очищаем и создаём новую
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{current_time} | INFO     | №{topic_id}: 🔄 Тема удалена, пересоздаю для {user_id}.")
+        logger.info(f"№{topic_id}: 🔄 Тема удалена, пересоздаю для {user_id}.")
         storage.remove_topic(user_id)
         storage.save()
 
         topic_id = await create_user_topic(bot, user_id, user_name, username)
         storage.set_topic(user_id, topic_id)
         is_new_topic = True
-        print(f"{current_time} | INFO     | №{topic_id}: ✅ Новая тема создана для {user_id}.")
+        logger.info(f"№{topic_id}: ✅ Новая тема создана для {user_id}.")
 
         sent_group_msg_id = await forward_to_group(
             bot,
@@ -58,8 +57,7 @@ async def user_message_handler(message: types.Message, bot, **data):
 
     if sent_group_msg_id:
         storage.update_activity(topic_id)
-        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{current_time} | INFO     | №{topic_id}: 📩 {user_id} написал сообщение.")
+        logger.info(f"№{topic_id}: 📩 {user_id} написал сообщение.")
 
     # Подтверждение для нового тикета
     if is_new_topic:
@@ -83,8 +81,10 @@ async def handle_resolution_callback(callback: CallbackQuery, bot, **data):
     is_success = callback.data == "resolve_success"
 
     # Логируем закрытие темы
-    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"{current_time} | INFO     | №{topic_id}: ✅ Вопрос успешно решён." if is_success else f"{current_time} | INFO     | №{topic_id}: ❌ Вопрос не был решён.")
+    if is_success:
+        logger.info(f"№{topic_id}: ✅ Вопрос успешно решён.")
+    else:
+        logger.info(f"№{topic_id}: ❌ Вопрос не был решён.")
 
     try:
         await close_topic_system(
@@ -95,7 +95,7 @@ async def handle_resolution_callback(callback: CallbackQuery, bot, **data):
             close_type=("success" if is_success else "unsuccess"),
         )
     except Exception as e:
-        print(f"⚠️ Ошибка close_topic_system: {e}")
+        logger.warning(f"Ошибка close_topic_system: {e}")
 
     # Удаляем сообщение с вопросом (и клавиатурой)
     try:

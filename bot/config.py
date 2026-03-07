@@ -1,5 +1,6 @@
 import os
 import sys
+import logging
 from dotenv import load_dotenv
 
 # Загрузка переменных окружения
@@ -11,11 +12,11 @@ INACTIVITY_DAYS = int(os.getenv("INACTIVITY_DAYS", 5))
 
 # Проверка обязательных параметров
 if not BOT_TOKEN:
-    print("❌ Ошибка: BOT_TOKEN не найден в .env")
+    logging.critical("❌ Ошибка: BOT_TOKEN не найден в .env")
     sys.exit(1)
 
 if not SUPPORT_GROUP_ID:
-    print("❌ Ошибка: SUPPORT_GROUP_ID не найден в .env")
+    logging.critical("❌ Ошибка: SUPPORT_GROUP_ID не найден в .env")
     sys.exit(1)
 
 SUPPORT_GROUP_ID = int(SUPPORT_GROUP_ID)

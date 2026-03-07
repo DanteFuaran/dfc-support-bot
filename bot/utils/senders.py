@@ -1,6 +1,9 @@
 from aiogram import Bot, types
 from bot.utils.keyboards import get_user_keyboard
 from bot.utils.storage import storage
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ThreadNotFoundError(Exception):
@@ -38,9 +41,9 @@ async def forward_to_group(
     except Exception as e:
         error_text = str(e).lower()
         if "thread not found" in error_text or "message thread not found" in error_text:
-            print(f"⚠️ Тема #{thread_id} удалена в Telegram, требуется пересоздание.")
+            logger.warning(f"Тема #{thread_id} удалена в Telegram, требуется пересоздание.")
             raise ThreadNotFoundError(str(e))
-        print(f"⚠️ Ошибка при пересылке в группу: {e}")
+        logger.warning(f"Ошибка при пересылке в группу: {e}")
         return None
 
 
@@ -100,6 +103,5 @@ async def send_to_user(
         return None
 
     except Exception as e:
-        print(f"⚠️ Ошибка при отправке пользователю: {e}")
-        return None
+        logger.warning(f"Ошибка при отправке пользователю: {e}")
         return None

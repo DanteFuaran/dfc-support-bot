@@ -4,6 +4,9 @@ from bot.utils.storage import storage
 from bot.utils.keyboards import get_user_keyboard
 import datetime
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Словарь для хранения данных пользователей
 user_data_cache = {}
@@ -75,7 +78,7 @@ async def create_user_topic(bot: Bot, user_id: str, user_name: str, username: st
         storage.link_group_message(notification_msg.message_id, topic_id)
 
     except Exception as e:
-        print(f"⚠️ Не удалось отправить карточку или уведомление: {e}")
+        logger.warning(f"Не удалось отправить карточку или уведомление: {e}")
 
     return topic_id
 
@@ -146,7 +149,7 @@ async def close_topic_system(bot: Bot, topic_id: int, user_id: int, closed_by: s
                 reply_markup=get_user_keyboard()
             )
         except Exception as e:
-            print(f"⚠️ Не удалось отправить уведомление пользователю {user_id}: {e}")
+            logger.warning(f"Не удалось отправить уведомление пользователю {user_id}: {e}")
 
     # 🧩 Закрываем тему форума
     topic_closed = False
@@ -157,10 +160,10 @@ async def close_topic_system(bot: Bot, topic_id: int, user_id: int, closed_by: s
         error_text = str(e).lower()
         # Если тема уже закрыта или удалена — это не ошибка, продолжаем очистку
         if "thread not found" in error_text or "topic_closed" in error_text or "already closed" in error_text:
-            print(f"ℹ️ Тема #{topic_id} уже закрыта/удалена в Telegram, очищаю storage.")
+            logger.info(f"Тема #{topic_id} уже закрыта/удалена в Telegram, очищаю storage.")
             topic_closed = True
         else:
-            print(f"⚠️ Ошибка при закрытии темы #{topic_id}: {e}")
+            logger.warning(f"Ошибка при закрытии темы #{topic_id}: {e}")
 
     # 🗒 Формируем сообщение для группы (только если закрыл пользователь, а не поддержка)
     if topic_closed and closed_by != "support":
@@ -171,7 +174,7 @@ async def close_topic_system(bot: Bot, topic_id: int, user_id: int, closed_by: s
                 text=f"{status_emoji} {status_text}."
             )
         except Exception as e:
-            print(f"⚠️ Ошибка при уведомлении группы о закрытии темы #{topic_id}: {e}")
+            logger.warning(f"Ошибка при уведомлении группы о закрытии темы #{topic_id}: {e}")
 
     # 📢 Редактируем сообщение в общем чате (с задержкой чтобы избежать flood control)
     try:
@@ -216,11 +219,11 @@ async def close_topic_system(bot: Bot, topic_id: int, user_id: int, closed_by: s
             )
 
     except Exception as e:
-        print(f"❌ Ошибка обновления сообщения в общем чате: {e}")
+        logger.error(f"Ошибка обновления сообщения в общем чате: {e}")
 
     # 🧹 Удаляем тему из хранилища
     try:
         storage.remove_topic(str(user_id))
         storage.save()
     except Exception as e:
-        print(f"⚠️ Ошибка при удалении темы из хранилища: {e}")
+        logger.warning(f"Ошибка при удалении темы из хранилища: {e}")

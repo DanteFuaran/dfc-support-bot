@@ -2,9 +2,10 @@ from aiogram import Router, types
 from bot.utils.senders import send_to_user
 from bot.utils.storage import storage
 from bot.config import SUPPORT_GROUP_ID
-import datetime
+import logging
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 
 @router.message(lambda msg: msg.chat.id == SUPPORT_GROUP_ID and msg.message_thread_id)
@@ -37,15 +38,12 @@ async def handle_support_message(message: types.Message, bot):
         if sent_msg_id:
             storage.update_activity(topic_id)
             storage.save()
-            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"{now} | INFO     | №{topic_id}: 📤 Поддержка написала сообщение.")
+            logger.info(f"№{topic_id}: 📤 Поддержка написала сообщение.")
         else:
-            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            print(f"{now} | ERROR    | №{topic_id}: ❌ Не удалось отправить сообщение пользователю")
+            logger.error(f"№{topic_id}: ❌ Не удалось отправить сообщение пользователю")
 
     except Exception as e:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{now} | ERROR    | №{topic_id}: ❌ Ошибка при отправке пользователю: {e}")
+        logger.error(f"№{topic_id}: ❌ Ошибка при отправке пользователю: {e}")
 
 
 @router.edited_message(lambda msg: msg.chat.id == SUPPORT_GROUP_ID and msg.message_thread_id)
@@ -80,5 +78,4 @@ async def handle_support_edited_message(message: types.Message, bot):
                 caption=message.caption
             )
     except Exception as e:
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{now} | WARNING  | №{topic_id}: ⚠️ Не удалось обновить сообщение: {e}")
+        logger.warning(f"№{topic_id}: ⚠️ Не удалось обновить сообщение: {e}")

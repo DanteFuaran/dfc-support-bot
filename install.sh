@@ -21,7 +21,7 @@ REPO_BRANCH="main"
 GITHUB_RAW_URL="https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot"
 CONTAINER_NAME="dfc-sb"
 IMAGE_NAME="dfc-sb:local"
-SCRIPT_VERSION="0.2.8"  # версия этого скрипта (хардкод — надёжен при bash <(curl ...))
+SCRIPT_VERSION="0.2.9"  # версия этого скрипта (хардкод — надёжен при bash <(curl ...))
 SYSTEM_INSTALL_DIR="/usr/local/lib/dfc-support-bot"
 
 # Единый источник версии и ветки: $PROJECT_DIR/version или $SCRIPT_CWD/version
