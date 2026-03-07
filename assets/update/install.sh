@@ -2,7 +2,7 @@
 
 # ═══════════════════════════════════════════════
 # DFC SUPPORT BOT — Установщик и панель управления
-# Версия: 0.1.7
+# Версия: 0.2.7
 # ═══════════════════════════════════════════════
 
 # Цвета
@@ -65,7 +65,7 @@ get_local_version() {
             [ -n "$ver" ] && echo "$ver" && return
         fi
     done
-    echo "0.1.9"
+    echo "0.2.7"
 }
 
 get_remote_version() {
@@ -688,7 +688,7 @@ delete_bot_full() {
 # ═══════════════════════════════════════════════
 show_install_menu() {
     local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.1.7"
+    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.2.7"
 
     local menu_title="     🚀 DFC SUPPORT BOT v${LOCAL_VERSION}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
     
