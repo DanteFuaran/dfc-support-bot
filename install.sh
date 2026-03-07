@@ -22,6 +22,7 @@ GITHUB_RAW_URL="https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot"
 CONTAINER_NAME="dfc-sb"
 IMAGE_NAME="dfc-sb:local"
 SCRIPT_VERSION="0.2.8"  # версия этого скрипта (хардкод — надёжен при bash <(curl ...))
+SYSTEM_INSTALL_DIR="/usr/local/lib/dfc-support-bot"
 
 # Единый источник версии и ветки: $PROJECT_DIR/version или $SCRIPT_CWD/version
 # Формат файла: version: x.x.x / branch: main
@@ -338,8 +339,11 @@ install_bot() {
     # Копируем только нужные файлы
     cp -f "$SOURCE_DIR/docker-compose.yml" "$PROJECT_DIR/docker-compose.yml"
     cp -f "$SOURCE_DIR/version" "$PROJECT_DIR/version" 2>/dev/null || true
-    cp -f "$SOURCE_DIR/install.sh" "$PROJECT_DIR/install.sh"
-    chmod +x "$PROJECT_DIR/install.sh"
+
+    # install.sh хранится в системной папке (не в PROJECT_DIR)
+    mkdir -p "$SYSTEM_INSTALL_DIR"
+    cp -f "$SOURCE_DIR/install.sh" "$SYSTEM_INSTALL_DIR/install.sh"
+    chmod +x "$SYSTEM_INSTALL_DIR/install.sh"
 
     # Генерируем .env
     cat > "$PROJECT_DIR/.env" << EOF
@@ -392,8 +396,8 @@ EOF
 create_cli_command() {
     cat > /usr/local/bin/dfc-sb << 'CLIPATH'
 #!/bin/bash
-if [ -f "/opt/dfc-support-bot/install.sh" ]; then
-    exec /opt/dfc-support-bot/install.sh
+if [ -f "/usr/local/lib/dfc-support-bot/install.sh" ]; then
+    exec /usr/local/lib/dfc-support-bot/install.sh
 else
     echo "❌ DFC Support Bot не установлен."
     exit 1
@@ -452,11 +456,14 @@ update_bot() {
     docker build -t "$IMAGE_NAME" . >/dev/null 2>&1 &
     show_spinner "Сборка нового образа"
 
-    # Обновляем файлы в продакшн (docker-compose, version, install.sh)
+    # Обновляем файлы в продакшн
     cp -f "$TEMP_DIR/docker-compose.yml" "$PROJECT_DIR/docker-compose.yml"
     cp -f "$TEMP_DIR/version" "$PROJECT_DIR/version" 2>/dev/null || true
-    cp -f "$TEMP_DIR/install.sh" "$PROJECT_DIR/install.sh"
-    chmod +x "$PROJECT_DIR/install.sh"
+
+    # Обновляем install.sh в системной папке
+    mkdir -p "$SYSTEM_INSTALL_DIR"
+    cp -f "$TEMP_DIR/install.sh" "$SYSTEM_INSTALL_DIR/install.sh"
+    chmod +x "$SYSTEM_INSTALL_DIR/install.sh"
 
     # Запуск
     cd "$PROJECT_DIR"
@@ -682,6 +689,7 @@ delete_bot_silent() {
     fi
     docker rmi "$IMAGE_NAME" -f >/dev/null 2>&1 || true
     rm -rf "$PROJECT_DIR"
+    rm -rf "$SYSTEM_INSTALL_DIR"
     rm -f /usr/local/bin/dfc-sb
     rm -f /usr/local/bin/dfc-support-bot
 }
@@ -695,6 +703,7 @@ delete_bot_full() {
     fi
     docker rmi "$IMAGE_NAME" -f >/dev/null 2>&1 || true
     rm -rf "$PROJECT_DIR"
+    rm -rf "$SYSTEM_INSTALL_DIR"
     rm -f /usr/local/bin/dfc-sb
     rm -f /usr/local/bin/dfc-support-bot
     rm -f /tmp/dfc_sb_update_available /tmp/dfc_sb_last_update_check 2>/dev/null
