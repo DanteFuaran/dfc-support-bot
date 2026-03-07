@@ -384,6 +384,7 @@ else
 fi
 CLIPATH
     chmod +x /usr/local/bin/dfc-sb
+    ln -sf /usr/local/bin/dfc-sb /usr/local/bin/dfc-support-bot
 }
 
 # ═══════════════════════════════════════════════
@@ -663,6 +664,7 @@ delete_bot_silent() {
     docker rmi "$IMAGE_NAME" -f >/dev/null 2>&1 || true
     rm -rf "$PROJECT_DIR"
     rm -f /usr/local/bin/dfc-sb
+    rm -f /usr/local/bin/dfc-support-bot
 }
 
 delete_bot_full() {
@@ -675,6 +677,7 @@ delete_bot_full() {
     docker rmi "$IMAGE_NAME" -f >/dev/null 2>&1 || true
     rm -rf "$PROJECT_DIR"
     rm -f /usr/local/bin/dfc-sb
+    rm -f /usr/local/bin/dfc-support-bot
     rm -f /tmp/dfc_sb_update_available /tmp/dfc_sb_last_update_check 2>/dev/null
     echo -e "${GREEN}✅ Бот полностью удалён${NC}"
     echo
