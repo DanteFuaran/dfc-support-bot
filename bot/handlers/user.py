@@ -1,6 +1,6 @@
 from aiogram import Router, types
 from aiogram.types import CallbackQuery
-from bot.utils.senders import forward_to_group
+from bot.utils.senders import forward_to_group, ThreadNotFoundError
 from bot.utils.keyboards import get_user_keyboard
 from bot.handlers.helpers import create_user_topic, close_topic_system
 from bot.config import SUPPORT_GROUP_ID
@@ -30,12 +30,31 @@ async def user_message_handler(message: types.Message, bot, **data):
         print(f"{current_time} | INFO     | №{topic_id}: ✅ Пользователь {user_id} открыл тему.")
 
     # Пересылка в группу (forward — показывает реальный аккаунт пользователя)
-    sent_group_msg_id = await forward_to_group(
-        bot,
-        SUPPORT_GROUP_ID,
-        message,
-        thread_id=topic_id,
-    )
+    try:
+        sent_group_msg_id = await forward_to_group(
+            bot,
+            SUPPORT_GROUP_ID,
+            message,
+            thread_id=topic_id,
+        )
+    except ThreadNotFoundError:
+        # Тема удалена в Telegram — очищаем и создаём новую
+        current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"{current_time} | INFO     | №{topic_id}: 🔄 Тема удалена, пересоздаю для {user_id}.")
+        storage.remove_topic(user_id)
+        storage.save()
+
+        topic_id = await create_user_topic(bot, user_id, user_name, username)
+        storage.set_topic(user_id, topic_id)
+        is_new_topic = True
+        print(f"{current_time} | INFO     | №{topic_id}: ✅ Новая тема создана для {user_id}.")
+
+        sent_group_msg_id = await forward_to_group(
+            bot,
+            SUPPORT_GROUP_ID,
+            message,
+            thread_id=topic_id,
+        )
 
     if sent_group_msg_id:
         storage.update_activity(topic_id)
@@ -78,8 +97,15 @@ async def handle_resolution_callback(callback: CallbackQuery, bot, **data):
     except Exception as e:
         print(f"⚠️ Ошибка close_topic_system: {e}")
 
-    # Убираем инлайн-клавиатуру
-    await callback.message.edit_reply_markup(reply_markup=None)
+    # Удаляем сообщение с вопросом (и клавиатурой)
+    try:
+        await callback.message.delete()
+    except Exception:
+        # Если удалить не вышло — хотя бы убираем кнопки
+        try:
+            await callback.message.edit_reply_markup(reply_markup=None)
+        except Exception:
+            pass
 
     # Отправляем сообщение пользователю
     await callback.message.answer(

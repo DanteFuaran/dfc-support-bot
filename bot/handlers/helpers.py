@@ -149,14 +149,21 @@ async def close_topic_system(bot: Bot, topic_id: int, user_id: int, closed_by: s
             print(f"⚠️ Не удалось отправить уведомление пользователю {user_id}: {e}")
 
     # 🧩 Закрываем тему форума
+    topic_closed = False
     try:
         await bot.close_forum_topic(chat_id=SUPPORT_GROUP_ID, message_thread_id=topic_id)
+        topic_closed = True
     except Exception as e:
-        print(f"⚠️ Ошибка при закрытии темы #{topic_id}: {e}")
-        return  # Прерываем выполнение если не удалось закрыть тему
+        error_text = str(e).lower()
+        # Если тема уже закрыта или удалена — это не ошибка, продолжаем очистку
+        if "thread not found" in error_text or "topic_closed" in error_text or "already closed" in error_text:
+            print(f"ℹ️ Тема #{topic_id} уже закрыта/удалена в Telegram, очищаю storage.")
+            topic_closed = True
+        else:
+            print(f"⚠️ Ошибка при закрытии темы #{topic_id}: {e}")
 
     # 🗒 Формируем сообщение для группы (только если закрыл пользователь, а не поддержка)
-    if closed_by != "support":
+    if topic_closed and closed_by != "support":
         try:
             await bot.send_message(
                 chat_id=SUPPORT_GROUP_ID,

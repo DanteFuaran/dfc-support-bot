@@ -26,7 +26,13 @@ async def auto_close_inactive_topics(bot: Bot):
             last = storage.get_last_activity(topic_id)
             if last and now - last > INACTIVITY_TIMEOUT:
                 logger.info(f"🕒 Автозакрытие темы #{topic_id} (пользователь {user_id})")
-                await close_topic_system(bot, topic_id, user_id, closed_by="system", close_type="support")
+                try:
+                    await close_topic_system(bot, topic_id, user_id, closed_by="system", close_type="support")
+                except Exception as e:
+                    logger.error(f"❌ Ошибка автозакрытия темы #{topic_id}: {e}")
+                    # Всё равно очищаем storage, чтобы не застрять на мёртвой теме
+                    storage.remove_topic(str(user_id))
+                    storage.save()
         await asyncio.sleep(600)
 
 

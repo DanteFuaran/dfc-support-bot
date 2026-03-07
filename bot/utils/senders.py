@@ -3,6 +3,11 @@ from bot.utils.keyboards import get_user_keyboard
 from bot.utils.storage import storage
 
 
+class ThreadNotFoundError(Exception):
+    """Тема форума не найдена в Telegram."""
+    pass
+
+
 async def forward_to_group(
     bot: Bot,
     group_id: int,
@@ -13,6 +18,8 @@ async def forward_to_group(
     Пересылка сообщения пользователя в группу поддержки.
     Использует Telegram forward_message — сообщения отображаются
     с реальным именем и аватаром пользователя.
+
+    Raises ThreadNotFoundError если тема удалена в Telegram.
     """
     try:
         sent = await bot.forward_message(
@@ -29,6 +36,10 @@ async def forward_to_group(
         return None
 
     except Exception as e:
+        error_text = str(e).lower()
+        if "thread not found" in error_text or "message thread not found" in error_text:
+            print(f"⚠️ Тема #{thread_id} удалена в Telegram, требуется пересоздание.")
+            raise ThreadNotFoundError(str(e))
         print(f"⚠️ Ошибка при пересылке в группу: {e}")
         return None
 
