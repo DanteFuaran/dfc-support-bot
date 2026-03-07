@@ -2,7 +2,7 @@
 
 # ═══════════════════════════════════════════════
 # DFC SUPPORT BOT — Установщик и панель управления
-# Версия: 0.2.7
+# Версия: 0.2.8
 # ═══════════════════════════════════════════════
 
 # Цвета
@@ -17,20 +17,27 @@ NC='\033[0m'
 # Пути
 PROJECT_DIR="/opt/dfc-support-bot"
 REPO_URL="https://github.com/DanteFuaran/dfc-support-bot.git"
-REPO_BRANCH="dev"
+REPO_BRANCH="main"
 GITHUB_RAW_URL="https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot"
 CONTAINER_NAME="dfc-sb"
 IMAGE_NAME="dfc-sb:local"
 
-# Определяем ветку из .update если есть
+# Единый источник версии и ветки: $PROJECT_DIR/version или $SCRIPT_CWD/version
+# Формат файла: version: x.x.x / branch: main
 SCRIPT_CWD="$(cd "$(dirname "$0")" && pwd)"
-for _uf in "$SCRIPT_CWD/assets/update/.update" "$PROJECT_DIR/assets/update/.update"; do
+for _uf in "$PROJECT_DIR/version" "$SCRIPT_CWD/version"; do
     if [ -f "$_uf" ]; then
         _br=$(grep '^branch:' "$_uf" | cut -d: -f2 | tr -d ' \n')
         [ -n "$_br" ] && REPO_BRANCH="$_br"
         break
     fi
 done
+
+# Статус проверки обновлений (заполняется асинхронно)
+UPDATE_AVAILABLE=0
+AVAILABLE_VERSION=""
+CHECK_UPDATE_PID=""
+UPDATE_STATUS_FILE=""
 
 # Источник файлов (при установке — tmp-папка)
 SOURCE_DIR=""
@@ -58,55 +65,68 @@ trap handle_interrupt INT
 # ВЕРСИЯ
 # ═══════════════════════════════════════════════
 get_local_version() {
-    for _uf in "$PROJECT_DIR/assets/update/.update" "$SCRIPT_CWD/assets/update/.update"; do
+    # Приоритет: production ($PROJECT_DIR/version), затем текущая папка ($SCRIPT_CWD/version)
+    for _uf in "$PROJECT_DIR/version" "$SCRIPT_CWD/version"; do
         if [ -f "$_uf" ]; then
             local ver
             ver=$(grep '^version:' "$_uf" 2>/dev/null | cut -d: -f2 | tr -d ' \n')
             [ -n "$ver" ] && echo "$ver" && return
         fi
     done
-    echo "0.2.7"
+    echo ""
 }
 
-get_remote_version() {
-    local latest_sha
-    latest_sha=$(curl -sL --max-time 5 "https://api.github.com/repos/DanteFuaran/dfc-support-bot/commits/$REPO_BRANCH" 2>/dev/null | grep -m 1 '"sha"' | cut -d'"' -f4)
-
-    if [ -n "$latest_sha" ]; then
-        curl -sL --max-time 5 "https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/$latest_sha/assets/update/.update" 2>/dev/null | grep '^version:' | cut -d: -f2 | tr -d ' \n'
-    else
-        curl -sL --max-time 5 "https://raw.githubusercontent.com/DanteFuaran/dfc-support-bot/$REPO_BRANCH/assets/update/.update?t=$(date +%s)" 2>/dev/null | grep '^version:' | cut -d: -f2 | tr -d ' \n'
-    fi
+parse_version_from_content() {
+    local content="$1"
+    local _v
+    _v=$(echo "$content" | grep '^version:' 2>/dev/null | cut -d: -f2 | tr -d ' \n')
+    [ -n "$_v" ] && echo "$_v" && return
+    # plain format — первая непустая строка вида x.y.z
+    echo "$content" | grep -v '^#\|^[[:space:]]*$' 2>/dev/null | head -1 | tr -d ' \n'
 }
 
-check_for_updates() {
-    local remote_version
-    remote_version=$(get_remote_version)
+check_updates_available() {
+    UPDATE_STATUS_FILE=$(mktemp)
+    echo "0|" > "$UPDATE_STATUS_FILE"
 
-    if [ -z "$remote_version" ]; then
-        return 1
-    fi
+    {
+        local LOCAL_VERSION
+        LOCAL_VERSION=$(grep '^version:' "$PROJECT_DIR/version" 2>/dev/null | cut -d: -f2 | tr -d ' \n')
 
-    local local_version
-    local_version=$(get_local_version)
+        local REMOTE_VERSION=""
+        local REMOTE_CONTENT
+        REMOTE_CONTENT=$(curl -sL --max-time 10 "${GITHUB_RAW_URL}/main/version" 2>/dev/null)
+        REMOTE_VERSION=$(parse_version_from_content "$REMOTE_CONTENT")
 
-    if [ "$remote_version" != "$local_version" ]; then
-        local IFS=.
-        local i remote_parts=($remote_version) local_parts=($local_version)
-        for ((i=0; i<${#remote_parts[@]}; i++)); do
-            local r=${remote_parts[i]:-0}
-            local l=${local_parts[i]:-0}
-            if (( r > l )); then
-                echo "$remote_version"
-                return 0
-            elif (( r < l )); then
-                return 1
+        if [ -n "$REMOTE_VERSION" ] && [ -n "$LOCAL_VERSION" ]; then
+            local local_num remote_num
+            local_num=$(echo "$LOCAL_VERSION" | awk -F. '{printf "%03d%03d%03d", $1, $2, $3}')
+            remote_num=$(echo "$REMOTE_VERSION" | awk -F. '{printf "%03d%03d%03d", $1, $2, $3}')
+            if [ "$local_num" -lt "$remote_num" ] 2>/dev/null; then
+                echo "1|$REMOTE_VERSION" > "$UPDATE_STATUS_FILE"
+            else
+                echo "0|$REMOTE_VERSION" > "$UPDATE_STATUS_FILE"
             fi
-        done
-        return 1
-    fi
+        elif [ -n "$REMOTE_VERSION" ]; then
+            echo "0|$REMOTE_VERSION" > "$UPDATE_STATUS_FILE"
+        fi
+    } &
+    CHECK_UPDATE_PID=$!
+}
 
-    return 1
+wait_for_update_check() {
+    if [ -n "$CHECK_UPDATE_PID" ]; then
+        wait "$CHECK_UPDATE_PID" 2>/dev/null || true
+        CHECK_UPDATE_PID=""
+    fi
+    if [ -n "$UPDATE_STATUS_FILE" ] && [ -f "$UPDATE_STATUS_FILE" ]; then
+        local update_info
+        update_info=$(cat "$UPDATE_STATUS_FILE" 2>/dev/null || echo "0|")
+        UPDATE_AVAILABLE=$(echo "$update_info" | cut -d'|' -f1)
+        AVAILABLE_VERSION=$(echo "$update_info" | cut -d'|' -f2)
+        rm -f "$UPDATE_STATUS_FILE" 2>/dev/null || true
+        UPDATE_STATUS_FILE=""
+    fi
 }
 
 # ═══════════════════════════════════════════════
@@ -322,6 +342,7 @@ install_bot() {
     # Копируем только нужные файлы
     cp -f "$SOURCE_DIR/docker-compose.yml" "$PROJECT_DIR/docker-compose.yml"
     cp -rf "$SOURCE_DIR/assets/"* "$PROJECT_DIR/assets/" 2>/dev/null || true
+    cp -f "$SOURCE_DIR/version" "$PROJECT_DIR/version" 2>/dev/null || true
     cp -f "$SOURCE_DIR/install.sh" "$PROJECT_DIR/assets/update/install.sh"
     chmod +x "$PROJECT_DIR/assets/update/install.sh"
 
@@ -408,8 +429,8 @@ update_bot() {
 
     # Показываем версии
     local new_version=""
-    if [ -f "$TEMP_DIR/assets/update/.update" ]; then
-        new_version=$(grep '^version:' "$TEMP_DIR/assets/update/.update" | cut -d: -f2 | tr -d ' \n')
+    if [ -f "$TEMP_DIR/version" ]; then
+        new_version=$(grep '^version:' "$TEMP_DIR/version" | cut -d: -f2 | tr -d ' \n')
     fi
 
     echo -e "${WHITE}Установленная версия:${NC} v$old_version"
@@ -436,9 +457,10 @@ update_bot() {
     docker build -t "$IMAGE_NAME" . >/dev/null 2>&1 &
     show_spinner "Сборка нового образа"
 
-    # Обновляем файлы в продакшн (только docker-compose, assets, install.sh)
+    # Обновляем файлы в продакшн (docker-compose, assets, version, install.sh)
     cp -f "$TEMP_DIR/docker-compose.yml" "$PROJECT_DIR/docker-compose.yml"
     cp -rf "$TEMP_DIR/assets/"* "$PROJECT_DIR/assets/" 2>/dev/null || true
+    cp -f "$TEMP_DIR/version" "$PROJECT_DIR/version" 2>/dev/null || true
     cp -f "$TEMP_DIR/install.sh" "$PROJECT_DIR/assets/update/install.sh"
     chmod +x "$PROJECT_DIR/assets/update/install.sh"
 
@@ -472,29 +494,32 @@ update_bot() {
 # ПАНЕЛЬ УПРАВЛЕНИЯ
 # ═══════════════════════════════════════════════
 show_full_menu() {
-    local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.2.1"
+    local LOCAL_VERSION
+    LOCAL_VERSION=$(get_local_version)
+    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.2.8"
 
     # Создаём команду если нет
     if [ ! -f "/usr/local/bin/dfc-sb" ]; then
         create_cli_command
     fi
 
+    # Ждём результата фоновой проверки обновлений
+    wait_for_update_check
+
     while true; do
         LOCAL_VERSION=$(get_local_version)
+        [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.2.8"
 
-        # Проверяем наличие обновлений
-        local update_notice=""
-        if [ -f /tmp/dfc_sb_update_available ]; then
-            local new_version
-            new_version=$(cat /tmp/dfc_sb_update_available)
-            update_notice=" ${YELLOW}(Доступно: v$new_version)${NC}"
+        # Формируем метку кнопки обновления
+        local update_label="🔄  Обновить"
+        if [ "$UPDATE_AVAILABLE" = "1" ] && [ -n "$AVAILABLE_VERSION" ]; then
+            update_label="🔄  Обновить ${YELLOW}( Доступно обновление — версия $AVAILABLE_VERSION ! )${NC}"
         fi
 
         local menu_title="     🚀 DFC SUPPORT BOT v${LOCAL_VERSION}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
         
         show_arrow_menu "$menu_title" \
-            "🔄  Обновить$update_notice" \
+            "$update_label" \
             "ℹ️   Просмотр логов" \
             "📊  Логи в реальном времени" \
             "──────────────────────────────────────" \
@@ -687,11 +712,20 @@ delete_bot_full() {
 # МЕНЮ УСТАНОВКИ (для нового пользователя)
 # ═══════════════════════════════════════════════
 show_install_menu() {
-    local LOCAL_VERSION=$(get_local_version)
-    [ -z "$LOCAL_VERSION" ] && LOCAL_VERSION="0.2.7"
+    # Ждём результата фоновой проверки обновлений (узнаём актуальную версию из репо)
+    wait_for_update_check
 
-    local menu_title="     🚀 DFC SUPPORT BOT v${LOCAL_VERSION}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
-    
+    # Версия для отображения: SCRIPT_CWD/version (если запущено из клона),
+    # иначе AVAILABLE_VERSION из удалённого репо
+    local DISPLAY_VERSION
+    DISPLAY_VERSION=$(get_local_version)
+    if [ -z "$DISPLAY_VERSION" ] && [ -n "$AVAILABLE_VERSION" ]; then
+        DISPLAY_VERSION="$AVAILABLE_VERSION"
+    fi
+    [ -z "$DISPLAY_VERSION" ] && DISPLAY_VERSION="0.2.8"
+
+    local menu_title="     🚀 DFC SUPPORT BOT v${DISPLAY_VERSION}\n${DARKGRAY}Проект развивается благодаря вашей поддержке\n        https://github.com/DanteFuaran${NC}"
+
     show_arrow_menu "$menu_title" \
         "📦  Установить" \
         "──────────────────────────────────────" \
@@ -714,26 +748,10 @@ if [ "$1" = "--install" ] && [ -n "$2" ]; then
     SOURCE_DIR="$2"
 fi
 
-# Проверка обновлений только если бот установлен
+# Запускаем проверку обновлений в фоне (не блокирует UI)
+check_updates_available
+
 if is_installed; then
-    UPDATE_CHECK_FILE="/tmp/dfc_sb_last_update_check"
-    current_time=$(date +%s)
-    last_check=0
-
-    if [ -f "$UPDATE_CHECK_FILE" ]; then
-        last_check=$(cat "$UPDATE_CHECK_FILE" 2>/dev/null || echo 0)
-    fi
-
-    time_diff=$((current_time - last_check))
-    if [ $time_diff -gt 3600 ] || [ ! -f /tmp/dfc_sb_update_available ]; then
-        new_version=$(check_for_updates)
-        if [ $? -eq 0 ] && [ -n "$new_version" ]; then
-            echo "$new_version" > /tmp/dfc_sb_update_available
-        else
-            rm -f /tmp/dfc_sb_update_available 2>/dev/null
-        fi
-        echo "$current_time" > "$UPDATE_CHECK_FILE"
-    fi
     show_full_menu
 else
     show_install_menu
