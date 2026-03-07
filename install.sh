@@ -333,14 +333,13 @@ install_bot() {
     INACTIVITY_DAYS=${INACTIVITY_DAYS:-5}
 
     # Создаём продакшн папку с минимальной структурой
-    mkdir -p "$PROJECT_DIR"/{data,logs,assets/update}
+    mkdir -p "$PROJECT_DIR"/{data,logs}
 
     # Копируем только нужные файлы
     cp -f "$SOURCE_DIR/docker-compose.yml" "$PROJECT_DIR/docker-compose.yml"
-    cp -rf "$SOURCE_DIR/assets/"* "$PROJECT_DIR/assets/" 2>/dev/null || true
     cp -f "$SOURCE_DIR/version" "$PROJECT_DIR/version" 2>/dev/null || true
-    cp -f "$SOURCE_DIR/install.sh" "$PROJECT_DIR/assets/update/install.sh"
-    chmod +x "$PROJECT_DIR/assets/update/install.sh"
+    cp -f "$SOURCE_DIR/install.sh" "$PROJECT_DIR/install.sh"
+    chmod +x "$PROJECT_DIR/install.sh"
 
     # Генерируем .env
     cat > "$PROJECT_DIR/.env" << EOF
@@ -393,8 +392,8 @@ EOF
 create_cli_command() {
     cat > /usr/local/bin/dfc-sb << 'CLIPATH'
 #!/bin/bash
-if [ -f "/opt/dfc-support-bot/assets/update/install.sh" ]; then
-    exec /opt/dfc-support-bot/assets/update/install.sh
+if [ -f "/opt/dfc-support-bot/install.sh" ]; then
+    exec /opt/dfc-support-bot/install.sh
 else
     echo "❌ DFC Support Bot не установлен."
     exit 1
@@ -453,12 +452,11 @@ update_bot() {
     docker build -t "$IMAGE_NAME" . >/dev/null 2>&1 &
     show_spinner "Сборка нового образа"
 
-    # Обновляем файлы в продакшн (docker-compose, assets, version, install.sh)
+    # Обновляем файлы в продакшн (docker-compose, version, install.sh)
     cp -f "$TEMP_DIR/docker-compose.yml" "$PROJECT_DIR/docker-compose.yml"
-    cp -rf "$TEMP_DIR/assets/"* "$PROJECT_DIR/assets/" 2>/dev/null || true
     cp -f "$TEMP_DIR/version" "$PROJECT_DIR/version" 2>/dev/null || true
-    cp -f "$TEMP_DIR/install.sh" "$PROJECT_DIR/assets/update/install.sh"
-    chmod +x "$PROJECT_DIR/assets/update/install.sh"
+    cp -f "$TEMP_DIR/install.sh" "$PROJECT_DIR/install.sh"
+    chmod +x "$PROJECT_DIR/install.sh"
 
     # Запуск
     cd "$PROJECT_DIR"
