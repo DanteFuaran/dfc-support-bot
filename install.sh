@@ -386,7 +386,7 @@ EOF
         echo -e "${YELLOW}Проверьте логи: docker logs $CONTAINER_NAME${NC}"
     fi
 
-    echo -e "${WHITE}✅ Команда управления:${NC} ${YELLOW}dfc-sb${NC}"
+    echo -e "${WHITE}✅ Команда управления:${NC} ${YELLOW}dfc-sb${NC} или ${YELLOW}dfc-support-bot${NC}"
     echo
 }
 
